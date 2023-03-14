@@ -119,17 +119,14 @@ defmodule Ledger.Entry do
       Enum.reduce(entry.entries, 0, fn e, acc ->
         [_currency, amount_str] = Keyword.get(e, :amount, ["", "0"])
         amount = Decimal.new(normalize_number(amount_str))
-        acc + amount
+        Decimal.add(acc, amount)
       end)
 
     entries =
       if missing_amount != 0 do
-        idx = Enum.find_index(entry.entries, fn e -> is_nil(Keyword.get(e, :amount)) end)
-        e = Enum.at(entry.entries, idx)
-
         Enum.map(entry.entries, fn e ->
           if is_nil(Keyword.get(e, :amount)) do
-            amount = [currency, Decimal.to_string(-missing_amount)]
+            amount = [currency, Decimal.to_string(Decimal.mult(missing_amount, -1))]
             e ++ [amount: amount]
           else
             e
@@ -153,19 +150,23 @@ defmodule Ledger.Entry do
   Balances a single entry.
   """
   def balance(entry) when is_struct(entry) do
+    entry = update_amounts(entry)
     Enum.reduce(entry.entries, [], fn x, acc ->
       account_name = Keyword.get(x, :account_name)
       [currency, amount] = Keyword.get(x, :amount)
       amount_num = Decimal.new(normalize_number(amount))
-      Keyword.merge(acc, ["#{account_name}  #{currency}": Decimal.to_string(amount_num)], fn _k, v1, v2 ->
+
+      key = "#{account_name}  #{currency}"
+
+      Keyword.merge(acc, ["#{key}": Decimal.to_string(amount_num)], fn _k, v1, v2 ->
         v1_num = Decimal.new(normalize_number(v1))
         v2_num = Decimal.new(normalize_number(v2))
+
         Decimal.add(v1_num, v2_num)
-        |> Decimal.to_string
+        |> Decimal.to_string()
       end)
     end)
   end
-
 
   defp normalize_number(num) do
     String.replace(num, ",", "")

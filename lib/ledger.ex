@@ -2,7 +2,7 @@ defmodule Ledger do
   @moduledoc false
 
   def balance(str) when is_binary(str) do
-    Ledger.Parsers.Ledger.parse(txt)
+    Ledger.Parsers.Ledger.parse(str)
     |> balance
   end
 
