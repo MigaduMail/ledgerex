@@ -3,10 +3,13 @@ defmodule LedgerTest do
   doctest Ledger
 
   test "simple transaction" do
-    assert Ledger.Parsers.Ledger.parse("2019/02/26
-  Liabitilies:AMEX
-  Transfer:AMEX			$-1,950.00
-") == [
+    txt = """
+    2019/02/26
+      Liabitilies:AMEX
+      Transfer:AMEX			$-1,950.00
+    """
+
+    assert Ledger.Parsers.Ledger.parse(txt) == [
              %Ledger.Entry{
                date_alternative: nil,
                payee: nil,
@@ -21,13 +24,83 @@ defmodule LedgerTest do
            ]
   end
 
-  test "simple transaction with balance assertion" do
-    assert Ledger.Parsers.Ledger.parse("2019/01/02 Hello
-  Liabilities:AMEX       $2000.00
-  Income                 $-2000.00 = $0
-") == [
+  test "simple transaction in unknown currency" do
+    txt = """
+    2019/02/26
+      Liabitilies:AMEX
+      Transfer:AMEX			ABCd -1,950.00
+    """
+
+    assert Ledger.Parsers.Ledger.parse(txt) == [
              %Ledger.Entry{
-               date: ~D[2019-01-02],
+               date_alternative: nil,
+               payee: nil,
+               status: nil,
+               tags: [],
+               date: ~D[2019-02-26],
+               entries: [
+                 [account_name: "Liabitilies:AMEX"],
+                 [account_name: "Transfer:AMEX", amount: ["ABCd", "-1,950.00"]]
+               ]
+             }
+           ]
+  end
+
+  test "simple wrong transaction (with only one space after account name instead of two-or-more)" do
+    txt = """
+    2019/02/26
+      Liabitilies:AMEX
+      Transfer:AMEX $-1,950.00
+    """
+
+    refute Ledger.Parsers.Ledger.parse(txt) == [
+             %Ledger.Entry{
+               date_alternative: nil,
+               payee: nil,
+               status: nil,
+               tags: [],
+               date: ~D[2019-02-26],
+               entries: [
+                 [account_name: "Liabitilies:AMEX"],
+                 [account_name: "Transfer:AMEX", amount: ["$", "-1,950.00"]]
+               ]
+             }
+           ]
+  end
+
+
+  test "simple transaction in EUR" do
+    txt = """
+    2019/02/26 Something in EUR
+      Liabitilies:AMEX
+      Transfer:AMEX			EUR -1,950.00
+    """
+
+    assert Ledger.Parsers.Ledger.parse(txt) == [
+             %Ledger.Entry{
+               date_alternative: nil,
+               payee: "Something in EUR",
+               status: nil,
+               tags: [],
+               date: ~D[2019-02-26],
+               entries: [
+                 [account_name: "Liabitilies:AMEX"],
+                 [account_name: "Transfer:AMEX", amount: ["EUR", "-1,950.00"]]
+               ]
+             }
+           ]
+  end
+
+  test "simple transaction with balance assertion" do
+    txt = """
+    2019/02/26 Hello
+      Liabilities:AMEX       $2000.00
+      Income                 $-2000.00 = $0
+    """
+
+    assert Ledger.Parsers.Ledger.parse(txt) == [
+             %Ledger.Entry{
+               date: ~D[2019-02-26],
                date_alternative: nil,
                entries: [
                  [account_name: "Liabilities:AMEX", amount: ["$", "2000.00"]],
@@ -43,16 +116,20 @@ defmodule LedgerTest do
              }
            ]
   end
+
   test "accounts with whitespace" do
-    assert Ledger.Parsers.Ledger.parse("2019/01/02 Hello
-  ; k1: v1 and whitepsace
-  ; k2: v2
-  Liabilities:AMEX Or Something       $2000.00
-  Income:1\t      $-1000.00
-  Income:2\t      $-1000.00
-") == [
+    txt = """
+    2019/02/26 Hello
+      ; k1: v1 and whitepsace
+      ; k2: v2
+      Liabilities:AMEX Or Something       $2000.00
+      Income:1\t      $-1000.00
+      Income:2\t      $-1000.00
+    """
+
+    assert Ledger.Parsers.Ledger.parse(txt) == [
              %Ledger.Entry{
-               date: ~D[2019-01-02],
+               date: ~D[2019-02-26],
                date_alternative: nil,
                entries: [
                  [account_name: "Liabilities:AMEX Or Something", amount: ["$", "2000.00"]],
@@ -67,7 +144,8 @@ defmodule LedgerTest do
   end
 
   test "real entry" do
-    assert Ledger.Parsers.Ledger.parse("2019/02/03=2019/02/01 * GOOGLE *GSUITE_TEST.COM
+    txt = """
+    2019/02/03=2019/02/01 * GOOGLE *GSUITE_TEST.COM
            ; trans_id: 20190203 705357 532 201,902,034,507
            ; trans_type: Debit
            ; ref_num: 564650848
@@ -79,7 +157,9 @@ defmodule LedgerTest do
            ; star_prefix: GOOGLE
            Liabilities:MC                  $-5.32
            Expenses:Consulting:GSuite
-") == [
+    """
+
+    assert Ledger.Parsers.Ledger.parse(txt) == [
              %Ledger.Entry{
                date: ~D[2019-02-03],
                date_alternative: ~D[2019-02-01],
@@ -102,5 +182,16 @@ defmodule LedgerTest do
                ]
              }
            ]
+  end
+
+  test "get currencies of an entry" do
+    txt = """
+    2019/02/26
+      Liabitilies:AMEX        USD 2000
+      Transfer:AMEX			EUR -1,950.00
+    """
+
+    [entry] = Ledger.Parsers.Ledger.parse(txt)
+    assert Ledger.Entry.currencies(entry) == ["USD", "EUR"]
   end
 end

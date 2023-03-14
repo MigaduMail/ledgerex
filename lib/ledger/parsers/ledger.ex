@@ -18,6 +18,12 @@ defmodule Ledger.Parsers.Ledger do
       [?A..?Z, ?a..?z, ?À..?ÿ, ?0..?9, ?\s, ?', ?:, ?., ?-, ?/, ?,, ?&, ?#, ?(, ?), ?*, ?@, ?_],
       min: 1
     )
+  currency =
+    utf8_string(
+      [?A..?Z, ?a..?z, ?À..?ÿ, ?_, ?$],
+      min: 1
+    )
+
 
   whitespace = ignore(times(ascii_char([?\s, ?\t]), min: 1))
   tag_name = ascii_string([{:not, ?:}], min: 1)
@@ -86,7 +92,7 @@ defmodule Ledger.Parsers.Ledger do
     |> tag(:tags)
 
   currency_amount =
-    choice([string("BTC"), string("$"), string("USD"), string("EUR"), string("CHF")])
+    currency
     |> optional(whitespace)
     |> concat(ascii_string([?0..?9, ?., ?-, ?,], min: 1))
     |> label("currency_amount")
