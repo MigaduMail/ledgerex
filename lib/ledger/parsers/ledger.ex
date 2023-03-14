@@ -6,7 +6,7 @@ defmodule Ledger.Parsers.Ledger do
   account_name =
     times(
       lookahead_not(string("  "))
-      |> ascii_char([?A..?Z, ?a..?z, ?&, ?:, ?0..?9, ?\ ]),
+      |> utf8_char([?A..?Z, ?a..?z, ?À..?ÿ, ?&, ?:, ?0..?9, ?\s]),
       min: 1
     )
     |> optional(ignore(string("  ")))
@@ -14,12 +14,12 @@ defmodule Ledger.Parsers.Ledger do
     |> reduce({List, :to_string, []})
 
   payee_desc =
-    ascii_string(
-      [?A..?Z, ?a..?z, ?0..?9, ?\ , ?', ?:, ?., ?-, ?/, ?,, ?&, ?#, ?(, ?), ?*, ?@, ?_],
+    utf8_string(
+      [?A..?Z, ?a..?z, ?À..?ÿ, ?0..?9, ?\s, ?', ?:, ?., ?-, ?/, ?,, ?&, ?#, ?(, ?), ?*, ?@, ?_],
       min: 1
     )
 
-  whitespace = ignore(times(ascii_char([?\ , ?\t]), min: 1))
+  whitespace = ignore(times(ascii_char([?\s, ?\t]), min: 1))
   tag_name = ascii_string([{:not, ?:}], min: 1)
   tag_value = ascii_string([{:not, ?\n}], min: 1)
 
@@ -86,7 +86,7 @@ defmodule Ledger.Parsers.Ledger do
     |> tag(:tags)
 
   currency_amount =
-    choice([string("BTC"), string("$")])
+    choice([string("BTC"), string("$"), string("USD"), string("EUR"), string("CHF")])
     |> optional(whitespace)
     |> concat(ascii_string([?0..?9, ?., ?-, ?,], min: 1))
     |> label("currency_amount")
