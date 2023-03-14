@@ -8,7 +8,7 @@ defmodule Ledger.Entry do
             tags: [],
             entries: []
 
-  @line_length 55
+  @line_length 95
 
   def amount_to_str([cur, amt]) do
     case cur do
@@ -28,14 +28,14 @@ defmodule Ledger.Entry do
 
         "#{pre}#{padded_amount} ; #{tag_k}: #{tag_v}"
 
-
       [account_name: account, amount: amount, balance_assertion: balance_assertion] ->
         pre = "#{indent}#{account}"
 
         amount_with_assert =
           (amount |> amount_to_str) <> " = " <> (balance_assertion |> amount_to_str)
 
-        padded_amount = amount_with_assert |> String.pad_leading(@line_length - String.length(pre))
+        padded_amount =
+          amount_with_assert |> String.pad_leading(@line_length - String.length(pre))
 
         "#{pre}#{padded_amount}"
 
@@ -51,7 +51,8 @@ defmodule Ledger.Entry do
         pre = "#{indent}#{account}"
 
         padded_assert =
-          (" = " <> (balance_assertion |> amount_to_str)) |> String.pad_leading(@line_length - String.length(pre))
+          (" = " <> (balance_assertion |> amount_to_str))
+          |> String.pad_leading(@line_length - String.length(pre))
 
         "#{pre}#{padded_assert}"
 
@@ -70,24 +71,82 @@ defmodule Ledger.Entry do
   end
 
   def to_string(r) do
-    alt_date = if r.date_alternative != nil do
-      "#{r.date}=#{r.date_alternative}"
-    else
-      "#{r.date}"
-    end
+    alt_date =
+      if r.date_alternative != nil do
+        "#{r.date}=#{r.date_alternative}"
+      else
+        "#{r.date}"
+      end
 
-    status = if r.status != nil do
-      "#{r.status}"
-    else
-      ""
-    end
+    status =
+      if r.status != nil do
+        "#{r.status}"
+      else
+        ""
+      end
 
-    ([
-      [alt_date, status, r.payee]|> Enum.filter(fn x -> x != nil end)|> Enum.filter(fn x -> String.length(x) > 0 end) |> Enum.join(" "),
-      "#{tags_to_string(r.tags, "    ")}",
-      "#{items_to_string(r.entries, "    ")}"
-    ]
-    |> Enum.filter(fn x -> String.length(x) != 0 end)) ++ [""]
+    (([
+        [alt_date, status, r.payee]
+        |> Enum.filter(fn x -> x != nil end)
+        |> Enum.filter(fn x -> String.length(x) > 0 end)
+        |> Enum.join(" "),
+        "#{tags_to_string(r.tags, "    ")}",
+        "#{items_to_string(r.entries, "    ")}"
+      ]
+      |> Enum.filter(fn x -> String.length(x) != 0 end)) ++ [""])
     |> Enum.join("\n")
+  end
+
+  @doc """
+  Adds missing amounts if not all are filled.
+  """
+  def update_amounts(entry) do
+    nr_without_amounts =
+      Enum.reduce(entry.entries, 0, fn e, acc ->
+        IO.inspect e: e, amount: Keyword.get(e, :amount)
+        if Keyword.get(e, :amount), do: acc, else: acc + 1
+      end)
+
+    currencies = currencies(entry)
+
+    if nr_without_amounts > 1, do: raise("More than one entry has no amount: #{Kernel.inspect(entry)}")
+    if nr_without_amounts == 1 and Enum.count(currencies) > 1, do: raise("More than one currency not allowed: #{Kernel.inspect(entry)}")
+
+    currency = Enum.at(currencies, 0)
+
+    missing_amount =
+      Enum.reduce(entry.entries, 0, fn e, acc ->
+        [_currency, amount_str] = Keyword.get(e, :amount, ["", "0"])
+        {amount, _} = Float.parse(amount_str)
+        acc + amount
+      end)
+
+    IO.inspect missing_amount: missing_amount
+
+    entries = if missing_amount != 0 do
+      idx = Enum.find_index(entry.entries, fn(e) -> is_nil(Keyword.get(e, :amount)) end)
+      IO.inspect idx: idx
+      e = Enum.at(entry.entries, idx)
+      IO.inspect e: e
+      Enum.map(entry.entries, fn(e) ->
+        if is_nil(Keyword.get(e, :amount)) do
+          amount = [currency, :erlang.float_to_binary(-missing_amount, [decimals: 2])]
+          e ++ [amount: amount]
+          else
+            e
+        end
+      end)
+      else
+        entry.entries
+    end
+    Map.replace(entry, :entries, entries)
+  end
+
+
+  def currencies(entry) do
+      Enum.reduce(entry.entries, [], fn e, acc ->
+        [currency, _amount_str] = Keyword.get(e, :amount, [nil, "0"])
+        if is_nil(currency), do: acc, else: acc ++ [currency]
+       end)
   end
 end
