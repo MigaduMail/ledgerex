@@ -12,3 +12,27 @@ A parser for [Ledger](https://www.ledger-cli.org/3.0/doc/ledger3.html) accountin
 It's just the bare minimum I needed to parse my ~10 years worth of ledger files.
 
 Pull requests more than welcome. Be nice.
+
+## Example
+
+``` elixir
+txt = """
+2019/01/02 Hello AMEX
+  Liabilities:AMEX       $2000.00
+  Income                 $-2000.00 = $0
+
+2019/01/02 Another AMEX
+  Liabilities:AMEX       $4000.00
+  Income
+"""
+
+# Load and parse the date
+res = Ledger.Parsers.Ledger.parse(txt)
+
+# Re-create the ledger file
+Enum.each(res, fn x ->
+  IO.puts(Ledger.Entry.to_string(x))
+end)
+```
+
+
