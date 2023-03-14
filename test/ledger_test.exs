@@ -203,7 +203,22 @@ defmodule LedgerTest do
     """
 
     [entry] = Ledger.Parsers.Ledger.parse(txt)
-    assert Ledger.Entry.balance(entry) == [{:"Liabitilies:AMEX   USD", 2000}, {:"Transfer:AMEX  EUR", -1950.0}]
+    assert Ledger.Entry.balance(entry) == [{:"Liabitilies:AMEX  USD", "2000"}, {:"Transfer:AMEX  EUR", "-1950.00"}]
+  end
+
+  test "balancing-list of an a set of entries" do
+    txt = """
+    2019/02/26
+      Liabitilies:AMEX        USD 2
+      Transfer:AMEX			EUR -1
+
+    2019/02/26
+      Liabitilies:AMEX        USD 2
+      Transfer:AMEX			EUR -1
+    """
+
+    entries = Ledger.Parsers.Ledger.parse(txt)
+    assert Ledger.balance_list(entries) == ["Liabitilies:AMEX  USD": "4", "Transfer:AMEX  EUR": "-2"]
   end
 
   test "balancing of an a set of entries" do
@@ -218,6 +233,31 @@ defmodule LedgerTest do
     """
 
     entries = Ledger.Parsers.Ledger.parse(txt)
-    assert Ledger.balance(entries) == ["Liabitilies:AMEX  USD": 4.0, "Transfer:AMEX  EUR": -2.0]
+    assert Ledger.balance(entries) ==
+    """
+    Liabitilies:AMEX  USD 4
+    Transfer:AMEX  EUR -2
+    """
+  end
+
+  test "another balancing of an a set of entries" do
+    txt = """
+    2019/02/26
+      Liabitilies:AMEX        USD 2
+      Transfer:AMEX			EUR -1
+      Expenses:Something			$-1
+
+    2019/02/26
+      Liabitilies:AMEX        USD 2
+      Transfer:AMEX			EUR -1
+    """
+
+    entries = Ledger.Parsers.Ledger.parse(txt)
+    assert Ledger.balance(entries) ==
+    """
+    Expenses:Something  $ -1
+    Liabitilies:AMEX  USD 4
+    Transfer:AMEX  EUR -2
+    """
   end
 end

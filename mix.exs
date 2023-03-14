@@ -38,6 +38,7 @@ defmodule Ledger.MixProject do
   defp deps do
     [
       {:nimble_parsec, "~> 1.2"},
+      {:decimal, "~> 2.0"},
       {:mix_test_watch, "~> 0.8", only: :dev, runtime: false},
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
