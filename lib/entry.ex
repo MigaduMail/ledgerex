@@ -87,8 +87,7 @@ defmodule Ledger.Entry do
 
     (([
         [alt_date, status, r.payee]
-        |> Enum.filter(fn x -> x != nil end)
-        |> Enum.filter(fn x -> String.length(x) > 0 end)
+        |> Enum.filter(fn x -> x != nil and String.length(x) > 0 end)
         |> Enum.join(" "),
         "#{tags_to_string(r.tags, "    ")}",
         "#{items_to_string(r.entries, "    ")}"
@@ -103,14 +102,16 @@ defmodule Ledger.Entry do
   def update_amounts(entry) do
     nr_without_amounts =
       Enum.reduce(entry.entries, 0, fn e, acc ->
-        IO.inspect e: e, amount: Keyword.get(e, :amount)
         if Keyword.get(e, :amount), do: acc, else: acc + 1
       end)
 
     currencies = currencies(entry)
 
-    if nr_without_amounts > 1, do: raise("More than one entry has no amount: #{Kernel.inspect(entry)}")
-    if nr_without_amounts == 1 and Enum.count(currencies) > 1, do: raise("More than one currency not allowed: #{Kernel.inspect(entry)}")
+    if nr_without_amounts > 1,
+      do: raise("More than one entry has no amount: #{Kernel.inspect(entry)}")
+
+    if nr_without_amounts == 1 and Enum.count(currencies) > 1,
+      do: raise("More than one currency not allowed: #{Kernel.inspect(entry)}")
 
     currency = Enum.at(currencies, 0)
 
@@ -121,32 +122,47 @@ defmodule Ledger.Entry do
         acc + amount
       end)
 
-    IO.inspect missing_amount: missing_amount
+    entries =
+      if missing_amount != 0 do
+        idx = Enum.find_index(entry.entries, fn e -> is_nil(Keyword.get(e, :amount)) end)
+        e = Enum.at(entry.entries, idx)
 
-    entries = if missing_amount != 0 do
-      idx = Enum.find_index(entry.entries, fn(e) -> is_nil(Keyword.get(e, :amount)) end)
-      IO.inspect idx: idx
-      e = Enum.at(entry.entries, idx)
-      IO.inspect e: e
-      Enum.map(entry.entries, fn(e) ->
-        if is_nil(Keyword.get(e, :amount)) do
-          amount = [currency, :erlang.float_to_binary(-missing_amount, [decimals: 2])]
-          e ++ [amount: amount]
+        Enum.map(entry.entries, fn e ->
+          if is_nil(Keyword.get(e, :amount)) do
+            amount = [currency, :erlang.float_to_binary(-missing_amount, decimals: 2)]
+            e ++ [amount: amount]
           else
             e
-        end
-      end)
+          end
+        end)
       else
         entry.entries
-    end
+      end
+
     Map.replace(entry, :entries, entries)
   end
 
-
   def currencies(entry) do
-      Enum.reduce(entry.entries, [], fn e, acc ->
-        [currency, _amount_str] = Keyword.get(e, :amount, [nil, "0"])
-        if is_nil(currency), do: acc, else: acc ++ [currency]
-       end)
+    Enum.reduce(entry.entries, [], fn e, acc ->
+      [currency, _amount_str] = Keyword.get(e, :amount, [nil, "0"])
+      if is_nil(currency), do: acc, else: acc ++ [currency]
+    end)
+  end
+
+  @doc """
+  Balances a single entry.
+  """
+  def balance(entry) when is_struct(entry) do
+    IO.inspect entry: entry
+    Enum.reduce(entry.entries, [], fn x, acc ->
+      account_name = Keyword.get(x, :account_name)
+      [currency, amount] = Keyword.get(x, :amount)
+      {amount_num, _} = Float.parse(amount)
+      Keyword.merge(acc, ["#{account_name}  #{currency}": amount_num], fn _k, v1, v2 ->
+        {v1_num, _} = Float.parse(v1)
+        {v2_num, _} = Float.parse(v2)
+        v1_num + v2_num
+      end)
+    end)
   end
 end
