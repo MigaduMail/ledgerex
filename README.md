@@ -8,14 +8,14 @@
 
 A parser for [Ledger](https://www.ledger-cli.org/3.0/doc/ledger3.html) accounting files written in Elixir.
 
-*Caveat Emptor*: It doesn't support the full range of ledger's capabilities.
+_Caveat Emptor_: It doesn't support the full range of ledger's capabilities.
 It's just the bare minimum I needed to parse my ~10 years worth of ledger files.
 
 Pull requests more than welcome. Be nice.
 
 ## Example
 
-``` elixir
+```elixir
 txt = """
 2019/01/02 Hello AMEX
   Liabilities:AMEX       $2000.00
@@ -33,6 +33,6 @@ res = Ledger.Parsers.Ledger.parse(txt)
 Enum.each(res, fn x ->
   IO.puts(Ledger.Entry.to_string(x))
 end)
+
+Ledger.balance(txt)
 ```
-
-

@@ -2,13 +2,15 @@ defmodule Ledger do
   @moduledoc false
 
   def balance(str) when is_binary(str) do
+    Ledger.Parsers.Ledger.parse(txt)
+    |> balance
   end
 
   def balance(entries) when is_list(entries) do
     balance_list(entries)
-    |> Enum.reduce("", fn({account_name, amount}, acc) ->
+    |> Enum.reduce("", fn {account_name, amount}, acc ->
       acc <> "#{account_name} #{amount}\n"
-      end)
+    end)
   end
 
   def balance_list(entries) when is_list(entries) do
